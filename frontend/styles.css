@@ -1,0 +1,171 @@
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: #222;
+  background: #fafafa;
+}
+
+header, footer {
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+}
+
+.url-input {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.url-input input {
+  flex: 1;
+  padding: 10px;
+  font-size: 16px;
+}
+
+.meta {
+  display: flex;
+  gap: 16px;
+  padding: 0 16px 12px;
+}
+
+.meta label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  height: calc(100vh - 360px);
+  min-height: 400px;
+  border-top: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pane h3 {
+  margin: 8px 12px;
+  font-size: 14px;
+  color: #666;
+}
+
+#markdownInput {
+  flex: 1;
+  border: none;
+  border-right: 1px solid #eee;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  resize: none;
+  outline: none;
+}
+
+#preview {
+  flex: 1;
+  padding: 12px;
+  overflow: auto;
+}
+
+.cover {
+  padding: 12px 16px;
+}
+
+.cover-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#coverPreview {
+  max-height: 180px;
+  border: 1px solid #ddd;
+  background: #fff;
+}
+
+.actions {
+  padding: 12px 16px 24px;
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  background: #2f6feb;
+  color: #fff;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button:disabled {
+  background: #aab7ff;
+  cursor: not-allowed;
+}
+/* Toolbar */
+.toolbar {
+  background-color: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #dee2e6;
+}
+
+.toolbar .btn-group {
+  flex-wrap: nowrap;
+}
+
+.toolbar .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.toolbar .btn i {
+  font-size: 1rem;
+}
+
+/* Statystyki */
+#statsBtn {
+  cursor: pointer;
+}
+
+#statsText {
+  margin-left: 0.5rem;
+  font-size: 0.875rem;
+}
+
+#statsPanel {
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsywność toolbara */
+@media (max-width: 768px) {
+  .toolbar .btn-toolbar {
+    flex-wrap: wrap;
+  }
+  
+  .toolbar .btn-group {
+    margin-bottom: 0.5rem;
+  }
+}

@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="pl" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <title>Web → Markdown → ePub (Bootstrap 5)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+  <!-- Ikony (opcjonalnie) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
+
+  <!-- Biblioteki z CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/turndown@7.2.0/dist/turndown.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it-footnote@4.0.0/dist/markdown-it-footnote.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+  <style>
+    /* STACKEDIT MODE: Oba panele ze scrollbarami, synchronizacja dwukierunkowa */
+
+    /* Podgląd Markdown */
+    #preview h1 { font-weight: 700; margin-bottom: .6em; }
+    #preview h2 { font-weight: 700; margin-bottom: .5em; }
+    #preview h3 { font-weight: 600; margin-bottom: .5em; }
+    #preview pre { background: #0f172a; color: #e5e7eb; padding: 1rem; border-radius: .5rem; }
+    [data-bs-theme="dark"] #preview pre { background: #0b1020; color: #e2e8f0; }
+    #preview code { background: rgba(108,117,125,.15); padding: .1rem .35rem; border-radius: .25rem; }
+    #preview img  { max-width: 100%; height: auto; border-radius: .5rem; }
+
+    /* Scrollbar (WebKit) */
+    .editor-scroll::-webkit-scrollbar,
+    .preview-scroll::-webkit-scrollbar { 
+      width: 10px; 
+    }
+    .editor-scroll::-webkit-scrollbar-thumb,
+    .preview-scroll::-webkit-scrollbar-thumb { 
+      background-color: rgba(100,116,139,.3); 
+      border-radius: 8px; 
+    }
+
+    /* Layout edytora */
+    .editor-pane { 
+      align-items: stretch; 
+      height: 80vh; /* Stała wysokość dla obu paneli */
+    }
+    .editor-col  { 
+      display: flex; 
+      flex-direction: column; 
+      height: 100%;
+    }
+    .editor-head { flex-shrink: 0; }
+    .editor-body { 
+      flex: 1 1 auto; 
+      min-height: 0;
+      overflow: hidden; /* Zapobiega przepełnieniu */
+    }
+
+    /* Textarea - stała wysokość ze scrollbarem (jak w StackEdit) */
+    #markdownInput {
+      display: block;
+      width: 100%;
+      height: 100%; /* Wypełnia cały editor-body */
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      background: transparent;
+      resize: none;
+      overflow-y: auto; /* KLUCZOWE: własny scrollbar */
+      overflow-x: hidden;
+      padding: 1rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Panel podglądu - stała wysokość ze scrollem */
+    .preview-container {
+      height: 100%; /* Wypełnia cały editor-body */
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #preview {
+      padding: 1rem;
+      min-height: 100%;
+    }
+
+    /* Usunięcie kilku efektów form-control */
+    #markdownInput.form-control {
+      background-clip: padding-box;
+    }
+
+    /* Cover Presets Gallery */
+    .preset-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+    }
+
+    .preset-card {
+      cursor: pointer;
+      border: 3px solid transparent;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      transition: all 0.2s;
+      aspect-ratio: 2/3;
+      position: relative;
+    }
+
+    .preset-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+    }
+
+    .preset-card.selected {
+      border-color: #0d6efd;
+      box-shadow: 0 0 0 3px rgba(13,110,253,0.25);
+    }
+
+    .preset-card-body {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .preset-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+
+    .preset-author {
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+
+    .preset-name {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 0.4rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    /* Cover Preview Container - szerokość okładki */
+    .cover-preview-container {
+      max-width: 600px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      background: #f8f9fa;
+      border-radius: 0.5rem;
+    }
+
+    [data-bs-theme="dark"] .cover-preview-container {
+      background: #1a1d20;
+    }
+
+    #coverPreviewLarge {
+      max-width: 100%;
+      height: auto;
+      border-radius: 0.5rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+
+    /* Suwaki */
+    .size-control {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .size-control label {
+      min-width: 120px;
+      margin: 0;
+    }
+
+    .size-control input[type="range"] {
+      flex: 1;
+    }
+
+    .size-control .size-value {
+      min-width: 50px;
+      text-align: right;
+      font-weight: 600;
+      color: #0d6efd;
+    }
+
+    /* FIX: Input file nie rozjeżdża się */
+    #coverFile {
+      width: auto !important;
+      max-width: 300px;
+    }
+
+    /* Domyślna miniaturka okładki */
+    #coverPreview {
+      max-height: 190px;
+      min-width: 127px;
+      min-height: 190px;
+      object-fit: cover;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #coverPreview[src=""] {
+      content: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="127" height="190" viewBox="0 0 127 190"><rect width="127" height="190" fill="%23667eea"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="white" font-size="16" font-family="Arial">Brak okładki</text></svg>');
+    }
+  </style>
+</head>
+<body class="bg-body-tertiary">
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg bg-body border-bottom sticky-top">
+    <div class="container-xxl">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+        <span class="d-inline-block rounded-3" style="width:28px;height:28px;background:linear-gradient(135deg,#2563eb,#7c3aed)"></span>
+        <span>Web → Markdown → ePub</span>
+      </a>
+      <div class="d-flex">
+        <button id="themeToggle" class="btn btn-outline-secondary">
+          <i class="bi bi-moon-stars"></i> / <i class="bi bi-sun"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container-xxl py-4">
+    <!-- URL -->
+    <section class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="row g-3 align-items-center">
+  <div class="col-12 col-lg-8">
+    <input id="urlInput" type="url" class="form-control form-control-lg" placeholder="Wklej link do artykułu (https://...)" />
+  </div>
+  <div class="col-12 col-lg-4">
+    <div class="row g-2">
+      <div class="col-12 col-sm-6 d-grid">
+        <button id="fetchBtn" class="btn btn-primary">
+          <i class="bi bi-download"></i> Pobierz artykuł
+        </button>
+      </div>
+      <div class="col-12 col-sm-6 d-grid">
+        <input type="file" id="docxInput" accept=".docx" style="display: none;">
+        <button onclick="document.getElementById('docxInput').click()" class="btn btn-outline-primary">Importuj DOCX</button>
+      </div>
+    </div>
+  </div>
+</div>
+        <small class="text-body-secondary d-block mt-2">
+          Podgląd wykorzystuje markdown-it + DOMPurify. Dla SPA może być potrzebny alternatywny backend.
+        </small>
+      </div>
+    </section>
+
+    <!-- Meta -->
+    <section class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label">Tytuł</label>
+            <input id="titleInput" type="text" class="form-control" placeholder="Tytuł e-booka" />
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Autor</label>
+            <input id="authorInput" type="text" class="form-control" placeholder="Autor" />
+          </div>
+          <div class="col-12">
+            <label class="form-label">Opis</label>
+            <textarea id="descriptionInput" class="form-control" rows="2" placeholder="Krótki opis e-booka (opcjonalnie)"></textarea>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Źródło</label>
+            <input id="sourceInput" type="text" class="form-control" placeholder="Nazwa serwisu (opcjonalnie)" />
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Data publikacji</label>
+            <input id="publishedDateInput" type="date" class="form-control" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Toolbar -->
+<div class="toolbar mb-3">
+  <div class="btn-toolbar" role="toolbar" aria-label="Narzędzia edycji">
+    <!-- Grupa: Formatowanie tekstu -->
+    <div class="btn-group me-2" role="group" aria-label="Formatowanie">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="boldBtn" title="Pogrubienie (Ctrl+B)">
+        <i class="bi bi-type-bold"></i>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="italicBtn" title="Kursywa (Ctrl+I)">
+        <i class="bi bi-type-italic"></i>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="strikeBtn" title="Przekreślenie">
+        <i class="bi bi-type-strikethrough"></i>
+      </button>
+    </div>
+
+    <!-- Grupa: Nagłówki -->
+    <div class="btn-group me-2" role="group" aria-label="Nagłówki">
+      <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Nagłówki">
+        <i class="bi bi-type-h1"></i>
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="#" id="h1Btn">Nagłówek 1 (H1)</a></li>
+        <li><a class="dropdown-item" href="#" id="h2Btn">Nagłówek 2 (H2)</a></li>
+        <li><a class="dropdown-item" href="#" id="h3Btn">Nagłówek 3 (H3)</a></li>
+      </ul>
+    </div>
+
+    <!-- Grupa: Listy -->
+    <div class="btn-group me-2" role="group" aria-label="Listy">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="ulBtn" title="Lista punktowana">
+        <i class="bi bi-list-ul"></i>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="olBtn" title="Lista numerowana">
+        <i class="bi bi-list-ol"></i>
+      </button>
+    </div>
+
+    <!-- Grupa: Inne -->
+    <div class="btn-group me-2" role="group" aria-label="Inne">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="quoteBtn" title="Cytat">
+        <i class="bi bi-quote"></i>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="codeBtn" title="Kod inline">
+        <i class="bi bi-code"></i>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="linkBtn" title="Link">
+        <i class="bi bi-link-45deg"></i>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="hrBtn" title="Separator">
+        <i class="bi bi-dash-lg"></i>
+      </button>
+    </div>
+    
+    <div class="btn-group me-2" role="group" aria-label="Inne">
+  <button type="button" class="btn btn-sm btn-outline-secondary" id="quoteBtn" title="Cytat">
+    <i class="bi bi-quote"></i>
+  </button>
+  <button type="button" class="btn btn-sm btn-outline-secondary" id="codeBtn" title="Kod inline">
+    <i class="bi bi-code"></i>
+  </button>
+  <button type="button" class="btn btn-sm btn-outline-secondary" id="footnoteBtn" title="Przypis">
+    <i class="bi bi-chat-square-text"></i>
+  </button>
+  <button type="button" class="btn btn-sm btn-outline-secondary" id="linkBtn" title="Link">
+    <i class="bi bi-link-45deg"></i>
+  </button>
+  <button type="button" class="btn btn-sm btn-outline-secondary" id="hrBtn" title="Separator">
+    <i class="bi bi-dash-lg"></i>
+  </button>
+</div>
+
+<!-- Grupa: Cofnij/Przywróć -->
+<div class="btn-group me-2" role="group" aria-label="Historia">
+  <button type="button" class="btn btn-sm btn-outline-secondary" id="undoBtn" title="Cofnij (Ctrl+Z)" disabled>
+    <i class="bi bi-arrow-counterclockwise"></i>
+  </button>
+  <button type="button" class="btn btn-sm btn-outline-secondary" id="redoBtn" title="Przywróć (Ctrl+Shift+Z)" disabled>
+    <i class="bi bi-arrow-clockwise"></i>
+  </button>
+</div>
+
+
+
+    <!-- Grupa: Narzędzia -->
+    <div class="btn-group me-2" role="group" aria-label="Narzędzia">
+  <button type="button" class="btn btn-sm btn-outline-danger" id="removeImagesBtn" title="Usuń obrazy">
+    <i class="bi bi-image"></i>
+    <i class="bi bi-slash-circle"></i>
+  </button>
+  <button type="button" class="btn btn-sm btn-outline-warning" id="clearFormattingBtn" title="Wyczyść formatowanie">
+    <i class="bi bi-eraser"></i>
+  </button>
+  <button type="button" class="btn btn-sm btn-outline-primary" id="reorderFootnotesBtn" title="Porządkuj przypisy">
+    <i class="bi bi-sort-numeric-down"></i>
+  </button>
+</div>
+
+<!-- Wyszukiwanie -->
+<div class="btn-group">
+  <button id="searchBtn" class="btn btn-outline-secondary" title="Wyszukaj">
+    <i class="bi bi-search"></i>
+  </button>
+</div>
+
+
+
+    <!-- Statystyki (po prawej) -->
+    <div class="ms-auto">
+      <button type="button" class="btn btn-sm btn-outline-info" id="statsBtn" title="Statystyki">
+        <i class="bi bi-bar-chart"></i>
+        <span id="statsText">0 słów</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Panel statystyk (ukryty domyślnie) -->
+<div class="card mb-3 d-none" id="statsPanel">
+  <div class="card-body">
+    <h6 class="card-title">📊 Statystyki tekstu</h6>
+    <div class="row">
+      <div class="col-md-3">
+        <strong>Słowa:</strong> <span id="statWords">0</span>
+      </div>
+      <div class="col-md-3">
+        <strong>Znaki (ze spacjami):</strong> <span id="statCharsWithSpaces">0</span>
+      </div>
+      <div class="col-md-3">
+        <strong>Znaki (bez spacji):</strong> <span id="statCharsNoSpaces">0</span>
+      </div>
+      <div class="col-md-3">
+        <strong>Czas czytania:</strong> <span id="statReadTime">0 min</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Panel wyszukiwania -->
+<div id="searchPanel" class="card shadow-sm mb-3 d-none">
+  <div class="card-body">
+    <div class="row g-2 align-items-center">
+      <div class="col-12">
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="text" id="searchInput" class="form-control" placeholder="Wyszukaj..." />
+          <button id="searchPrevBtn" class="btn btn-outline-secondary" title="Poprzedni">
+            <i class="bi bi-chevron-left"></i>
+          </button>
+          <button id="searchNextBtn" class="btn btn-outline-secondary" title="Następny">
+            <i class="bi bi-chevron-right"></i>
+          </button>
+          <button id="toggleReplaceBtn" class="btn btn-outline-secondary" title="Znajdź i zamień">
+            <i class="bi bi-chevron-down"></i>
+          </button>
+          <button id="closeSearchBtn" class="btn btn-outline-secondary" title="Zamknij">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <div class="form-check form-check-inline mt-2 ms-2">
+          <input class="form-check-input" type="checkbox" id="searchCaseSensitive">
+          <label class="form-check-label" for="searchCaseSensitive">
+            <small>Uwzględnij wielkość liter</small>
+          </label>
+        </div>
+        <small id="searchResults" class="text-muted ms-3"></small>
+      </div>
+      <div class="col-12 d-none" id="replaceRow">
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-arrow-repeat"></i></span>
+          <input type="text" id="replaceInput" class="form-control" placeholder="Zamień na..." />
+          <button id="replaceBtn" class="btn btn-outline-primary">Zamień</button>
+          <button id="replaceAllBtn" class="btn btn-outline-primary">Zamień wszystkie</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    <!-- Editor panes -->
+    <section class="card shadow-sm mb-4">
+      <div class="row g-0 editor-pane">
+        <!-- Left - Textarea (ze scrollbarem, synchronizacja z preview) -->
+        <div class="col-12 col-xl-6 border-end editor-col">
+          <div class="editor-head d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+            <h3 class="h6 m-0 text-body-secondary">Markdown (edytowalne)</h3>
+          </div>
+          <div class="editor-body p-0">
+            <textarea id="markdownInput" spellcheck="true" class="form-control editor-scroll"></textarea>
+          </div>
+        </div>
+        <!-- Right - Preview (stała wysokość ze scrollem) -->
+        <div class="col-12 col-xl-6 editor-col">
+          <div class="editor-head d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+            <h3 class="h6 m-0 text-body-secondary">Podgląd</h3>
+            <small class="text-body-tertiary">markdown-it + DOMPurify</small>
+          </div>
+          <div class="editor-body p-0">
+            <div class="preview-container preview-scroll">
+              <div id="preview"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cover Presets -->
+    <section class="card shadow-sm mb-4">
+      <div class="card-header">
+        <h3 class="h5 m-0">Presety okładek</h3>
+      </div>
+      <div class="card-body">
+        <!-- Galeria presetów -->
+        <div class="preset-gallery mb-4" id="presetGallery"></div>
+
+        <!-- Customizacja -->
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-4">
+            <label class="form-label">Kolor tła</label>
+            <input id="bgColorInput" type="color" class="form-control form-control-color w-100" value="#d3d3d3" />
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">Kolor tekstu</label>
+            <input id="textColorInput" type="color" class="form-control form-control-color w-100" value="#000000" />
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">Czcionka</label>
+            <select id="fontSelect" class="form-select">
+              <option value="Georgia, serif">Georgia</option>
+              <option value="'Times New Roman', serif">Times New Roman</option>
+              <option value="'Merriweather', serif" selected>Merriweather</option>
+              <option value="'Playfair Display', serif">Playfair Display</option>
+              <option value="Arial, sans-serif">Arial</option>
+              <option value="'Helvetica Neue', sans-serif">Helvetica</option>
+              <option value="'Roboto', sans-serif">Roboto</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Suwaki rozmiaru -->
+        <div class="row g-3 mb-3">
+          <div class="col-12 col-md-6">
+            <div class="size-control">
+              <label for="titleSizeRange">Rozmiar tytułu:</label>
+              <input type="range" id="titleSizeRange" class="form-range" min="30" max="120" value="70" />
+              <span class="size-value"><span id="titleSizeValue">70</span>px</span>
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="size-control">
+              <label for="authorSizeRange">Rozmiar autora:</label>
+              <input type="range" id="authorSizeRange" class="form-range" min="20" max="70" value="40" />
+              <span class="size-value"><span id="authorSizeValue">40</span>px</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Przyciski -->
+        <div class="d-flex gap-2 mb-3">
+          <button id="generatePresetCoverBtn" class="btn btn-primary">Generuj okładkę z presetu</button>
+          <button id="resetPresetBtn" class="btn btn-outline-secondary">Resetuj wybór</button>
+        </div>
+
+        <!-- Podgląd okładki -->
+        <div class="cover-preview-container">
+          <img id="coverPreviewLarge" src="" alt="Podgląd okładki" style="display: none;" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Cover (tradycyjny) -->
+    <section class="card shadow-sm mb-4">
+      <div class="card-header">
+        <h3 class="h5 m-0">Własna okładka</h3>
+      </div>
+      <div class="card-body d-flex flex-column flex-lg-row gap-3 justify-content-between align-items-start align-items-lg-center">
+        <div class="d-flex flex-column flex-sm-row gap-2 align-items-start align-items-sm-center">
+          <input id="coverFile" type="file" accept="image/*" class="form-control" />
+          <button id="genCoverBtn" class="btn btn-dark">Generuj okładkę (tradycyjnie)</button>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+          <canvas id="coverCanvas" width="1200" height="1800" class="d-none"></canvas>
+          <img id="coverPreview" src="" alt="Podgląd okładki" class="img-thumbnail" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Actions -->
+    <section class="card shadow-sm mb-4">
+      <div class="card-body d-flex flex-wrap gap-2">
+        <button id="downloadMarkdownBtn" class="btn btn-success">Pobierz Markdown</button>
+        <button id="downloadEpubBtn" class="btn btn-primary">Pobierz ePub</button>
+        <button id="sendKindleBtn" class="btn btn-secondary"><i class="bi bi-send"></i> Wyślij do Kindla</button>
+      </div>
+    </section>
+
+    <footer class="pb-4 text-body-secondary small">
+      Uwaga: Funkcja wysyłki na Kindle będzie dodana później. EPUB 3 (toc.xhtml).
+    </footer>
+  </main>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+  <!-- Motyw -->
+  <script>
+    // ==== MOTYW ====
+    const toggle = document.getElementById('themeToggle');
+    const setTheme = (mode) => {
+      document.documentElement.setAttribute('data-bs-theme', mode);
+      try { localStorage.setItem('bs-theme', mode); } catch {}
+    };
+    (function initTheme() {
+      try {
+        const saved = localStorage.getItem('bs-theme');
+        if (saved) return setTheme(saved);
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) setTheme('dark');
+      } catch {}
+    })();
+    toggle?.addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-bs-theme') || 'light';
+      setTheme(cur === 'light' ? 'dark' : 'light');
+    });
+  </script>
+
+<!-- Modal: Wyślij do Kindla -->
+<div class="modal fade" id="sendKindleModal" tabindex="-1" aria-labelledby="sendKindleModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="sendKindleModalLabel">Wyślij do Kindla</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Instrukcja -->
+        <div class="alert alert-info" role="alert">
+          <strong>⚠️ Ważne:</strong> Aby wysyłka zadziałała, musisz dodać swój email do <strong>Approved Personal Document E-mail List</strong> w ustawieniach Amazon Kindle.
+          <br><br>
+          <a href="https://www.amazon.com/hz/mycd/myx#/home/settings/payment" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+            <i class="bi bi-box-arrow-up-right"></i> Otwórz ustawienia Amazon
+          </a>
+        </div>
+
+        <!-- Formularz -->
+        <form id="sendKindleForm">
+          <div class="mb-3">
+            <label for="userEmailInput" class="form-label">Twój email (nadawca)</label>
+            <input type="email" class="form-control" id="userEmailInput" placeholder="jan@gmail.com" required />
+            <small class="form-text text-muted">Ten adres musi być zatwierdzony w ustawieniach Amazon.</small>
+          </div>
+
+          <div class="mb-3">
+            <label for="kindleEmailInput" class="form-label">Kindle email (odbiorca)</label>
+            <input type="email" class="form-control" id="kindleEmailInput" placeholder="jan_kowalski@kindle.com" required />
+            <small class="form-text text-muted">Znajdziesz go w ustawieniach Kindle (np. <code>username@kindle.com</code>).</small>
+          </div>
+
+          <div class="mb-3">
+            <label for="bookTitleInput" class="form-label">Tytuł książki (opcjonalnie)</label>
+            <input type="text" class="form-control" id="bookTitleInput" placeholder="Tytuł e-booka" />
+            <small class="form-text text-muted">Zostanie użyty jako temat emaila.</small>
+          </div>
+
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="rememberEmailsCheckbox" checked />
+            <label class="form-check-label" for="rememberEmailsCheckbox">
+              Zapamiętaj moje dane (LocalStorage)
+            </label>
+          </div>
+        </form>
+
+        <!-- Loader (ukryty domyślnie) -->
+        <div id="sendKindleLoader" class="text-center d-none">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Wysyłanie...</span>
+          </div>
+          <p class="mt-2">Wysyłanie ePub na Kindle...</p>
+        </div>
+
+        <!-- Komunikaty -->
+        <div id="sendKindleSuccess" class="alert alert-success d-none" role="alert">
+          ✅ <strong>Sukces!</strong> ePub został wysłany na Kindle. Sprawdź swoją bibliotekę za kilka minut.
+        </div>
+        <div id="sendKindleError" class="alert alert-danger d-none" role="alert">
+          ❌ <strong>Błąd:</strong> <span id="sendKindleErrorMsg"></span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <button type="button" class="btn btn-primary" id="sendKindleSubmitBtn">
+          <i class="bi bi-send"></i> Wyślij
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- Logika aplikacji -->
+  <script src="./app.js"></script>
+</body>
+</html>
